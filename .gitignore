@@ -1,0 +1,31 @@
+# ── private, never public ──────────────────────────────────────────────
+# Study notes, career context, working notes. First rule in the file
+# because it is the one that must never fail.
+notes/
+
+# ── data: ALLOW-LIST, never a deny-list ───────────────────────────────
+# A deny-list of extensions fails on the next file type you invent.
+# Everything under data/ is ignored except the one marker that keeps
+# the directory in git. The upstream litellm clone also lands here
+# (data/upstream/), so it is covered by this rule and needs no other.
+data/*
+!data/.gitkeep
+
+# ── secrets ───────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+secrets/
+
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# ── macOS ─────────────────────────────────────────────────────────────
+.DS_Store
