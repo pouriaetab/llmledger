@@ -150,6 +150,11 @@ def test_req_s36_about_rows_and_the_prompt_box(tmp_path):
     assert 'closest("a[data-scope]")' in app and "row.open = true" in app
     # #find=<text> opens Models with that search, so another page can link to one model's listings
     assert 'h.startsWith("find=")' in app and 'showTab("models")' in app
+    # ...also when the link is followed on the open page: the tab handler leaves #find= alone (it used to
+    # switch back to Ask), and a stray % in the link is not an error
+    handler = app[app.rindex('window.addEventListener("hashchange", () => {'):]
+    assert handler.index('if (h.startsWith("find=")) return;') < handler.index("showTab(h);")
+    assert "try { h = decodeURIComponent(h); } catch (e)" in app
     # the prompt box grows with the prompt (up to 40% of the window), and nothing is hidden to make room
     assert "ta.style.height = Math.min(ta.scrollHeight + 2" in app
     assert "tight" not in app and "tight" not in page

@@ -177,7 +177,8 @@
     }));
   // #find=<text> opens Models with that search (a link from elsewhere to one model's listings; REQ-S18)
   function findFromHash() {
-    const h = decodeURIComponent(location.hash.slice(1));
+    let h = location.hash.slice(1);
+    try { h = decodeURIComponent(h); } catch (e) { /* a stray % in the link: use the text as it is */ }
     if (!h.startsWith("find=")) return false;
     showTab("models");
     $("search").value = h.slice(5);
@@ -201,6 +202,7 @@
     (() => { try { return localStorage.getItem(STORE + ":panel"); } catch (e) { return null; } })() || "overview");
   window.addEventListener("hashchange", () => {
     const h = location.hash.slice(1);
+    if (h.startsWith("find=")) return;          // findFromHash opened Models; do not fall back to Ask
     showTab(h);
     if (["week", "top", "overview", "unpriced", "makers"].includes(h)) showPanel(h);
   });
