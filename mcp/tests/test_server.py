@@ -97,6 +97,11 @@ def test_compare_models_picks_and_explains():
     assert plan["notes"] and "estimate" in plan["notes"][0]
 
 
+def test_answer_tokens_below_zero_are_refused():
+    with pytest.raises(ToolError, match="must be 0 or more"):
+        call("compare_models", models=["claude-opus-5.5", "claude-fable-5.1"], answer_tokens={"claude-fable-5.1": -100})
+
+
 def test_unknown_names_say_what_is_close():
     with pytest.raises(ToolError, match="Not found: 'claude' \\(did you mean"):
         call("compare_models", models=["claude", "gpt-6.1-sol"])
@@ -219,6 +224,8 @@ def test_a_price_on_a_date_with_the_change_that_set_it(monkeypatch):
     assert on("2026-07-01")["on_date"] == {"day": "2026-07-01", "listed": False, "note": "Not listed yet: added 2026-08-02."}
     with pytest.raises(ToolError, match="YYYY-MM-DD"):
         call("price_history", model="bedrock/claude-opus-5-5", date="1 Sept")
+    with pytest.raises(ToolError, match="a real day"):          # the shape of a date, and no such day
+        call("price_history", model="bedrock/claude-opus-5-5", date="2026-02-31")
 
 
 def test_cache_reads_and_writes_and_the_saving(monkeypatch):

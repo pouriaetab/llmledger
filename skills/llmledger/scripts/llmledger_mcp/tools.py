@@ -226,6 +226,8 @@ def compare_models(s, models, task="overall", input_tokens=1000, output_tokens=8
     groups = resolve_all(s, models)
     own = {}
     for name, n in (answer_tokens or {}).items():
+        if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
+            raise NotFound(f"answer_tokens for {name!r} must be 0 or more, not {n!r}.")
         group, _ = s.resolve(name)
         if group:
             own[group] = n
@@ -302,8 +304,13 @@ def price_history(s, model, date=None):
     """Every change to a model's listings since 2023 (prices, retirement dates) with the LiteLLM change behind
     each, and for listings that have not changed yet, the chance of a price change, a retirement date or removal
     in the next 90 days and year. With a date (YYYY-MM-DD), each listing's prices that day and what set them."""
-    if date is not None and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date)):
-        raise NotFound(f"Give the date as YYYY-MM-DD, not {date!r}.")
+    if date is not None:
+        try:
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date)):
+                raise ValueError
+            datetime.strptime(str(date), "%Y-%m-%d")    # 2026-02-31 has the shape and is no day
+        except ValueError:
+            raise NotFound(f"Give the date as YYYY-MM-DD (a real day), not {date!r}.") from None
     if model in s.by_key:
         keys = [model]
         group = s.by_key[model]["maker"] + " / " + s.by_key[model]["name"]
@@ -899,18 +906,21 @@ def price_my_usage(s, export=None, mix=None, task=None, compare=None, limit=25):
             by_session[u["session"]] = by_session.get(u["session"], 0.0) + (_unit_cost(model, u) or 0.0)
         total = sum(by_session.values())
         r = rated.get(group)
+        unpriced_cache = [words for words, field in (("cache read", "cache_read"), ("cache write", "cache_write"))
+                          if totals[field] and m.get(field) is None]
         row = {"model": group, "listing": m["key"], "host": m["host"],
                "rating": {"score": r[2], "low": r[3], "high": r[4]} if r else None,
                "cost": money(total), "per_session": _range(list(by_session.values())),
                "versus_yours": {"saving": money(paid - total), "share": round((paid - total) / paid, 4) if paid else None},
                "keeps_rating": bool(r and main["rating"] and r[4] >= main["rating"]["low"]),
-               "cache_priced": m.get("cache_read") is not None or not totals["cache_read"],
+               "cache_priced": not unpriced_cache,
                "_sessions": by_session}
         if before:
             row["note"] = (f"Listed since {m.get('added')}: {before} of your {len(units)} rows are from before that "
                            "and are priced at its first prices.")
-        if totals["cache_read"] and m.get("cache_read") is None:
-            row["note"] = (row.get("note", "") + " No cache price listed: cache tokens counted at the input price.").strip()
+        if unpriced_cache:
+            row["note"] = (row.get("note", "") + f" No {' or '.join(unpriced_cache)} price listed: "
+                           "those tokens are counted at the input price.").strip()
         rows.append(row)
     rows.sort(key=lambda r: r["cost"])
     cheaper = [r for r in rows if r["keeps_rating"] and r["cost"] < paid and r["model"] not in {x["model"] for x in used}]
