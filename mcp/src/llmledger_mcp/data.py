@@ -50,13 +50,24 @@ def _download(url, dest):
         if response.headers.get("Content-Encoding") == "gzip":     # about 0.4 MB instead of 4.9 MB
             body = gzip.decompress(body)
     try:
-        json.loads(body)                                # a broken download never replaces a good copy
+        found = json.loads(body)                        # a broken download never replaces a good copy
     except ValueError:
-        raise ValueError("what came back was not the day's data") from None
+        found = None
+    if not _is_data(found):
+        raise ValueError("what came back was not the day's data")
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=dest.parent, delete=False) as f:
         f.write(body)
     os.replace(f.name, dest)
+
+
+def _is_data(found):
+    """True for the day's data: a list of models that each have a key, a maker and a name. Other JSON
+    (an error message from a proxy, say) is not."""
+    models = found.get("models") if isinstance(found, dict) else None
+    return (isinstance(models, list) and bool(models)
+            and all(isinstance(m, dict) and all(isinstance(m.get(k), str) for k in ("key", "maker", "name"))
+                    for m in models))
 
 
 def _bundled():
@@ -98,7 +109,9 @@ def load(now=None):
     if dest.exists():
         try:
             where = "downloaded" if fresh else "the last download (could not refresh it)"
-            return json.loads(dest.read_text()), where, trouble
+            saved = json.loads(dest.read_text())
+            if _is_data(saved):                         # a copy an older version saved may be other JSON
+                return saved, where, trouble
         except ValueError:
             pass
     try:

@@ -20,7 +20,8 @@ FIXTURE = Path(__file__).with_name("fixture.json")
 
 class Page:
     """A fake llmledger page on 127.0.0.1. mode: "ok", "fail" (HTTP 500), "slow" (answers after 2 s), "gzip"
-    or "html" (a sign in page in place of the data, as some networks send)."""
+    "html" (a sign in page in place of the data, as some networks send) or "json" (an error message that is
+    JSON, as a proxy or an API sends)."""
 
     def __init__(self, mode):
         self.mode, self.asked = mode, []
@@ -35,7 +36,8 @@ class Page:
                         return
                     if page.mode == "slow":
                         time.sleep(2)
-                    body = b"<html>Sign in to use this network</html>" if page.mode == "html" else FIXTURE.read_bytes()
+                    body = {"html": b"<html>Sign in to use this network</html>",
+                            "json": b'{"message": "Not Found"}'}.get(page.mode) or FIXTURE.read_bytes()
                     self.send_response(200)
                     if page.mode == "gzip" and "gzip" in (self.headers.get("Accept-Encoding") or ""):
                         body = gzip.compress(body)
@@ -110,6 +112,23 @@ def test_a_page_that_is_not_the_data_never_replaces_the_copy(page):
     p.mode = "html"
     d, where, trouble = data.load(now=time.time() + 2 * data.MAX_AGE)
     assert d == good and trouble["error"] == "what came back was not the day's data"
+
+
+def test_json_that_is_not_the_data_never_replaces_the_copy(page):
+    p = page("ok")
+    good = data.load()[0]
+    p.mode = "json"                                     # it parses, and it has no models
+    d, where, trouble = data.load(now=time.time() + 2 * data.MAX_AGE)
+    assert d == good and trouble["error"] == "what came back was not the day's data"
+    assert tools.find_models(data.Shelf(d, where, trouble), limit=1)["models"]
+
+
+def test_a_saved_copy_that_is_not_the_data_is_passed_over(page):
+    page("fail")
+    data.cache_file().parent.mkdir(parents=True)
+    data.cache_file().write_text('{"message": "Not Found"}')      # what 0.2.1 and earlier could save
+    d, where, trouble = data.load(now=time.time() + 2 * data.MAX_AGE)
+    assert where == "the copy bundled with this version" and d["models"]
 
 
 def test_a_slow_page_times_out_and_the_bundled_copy_answers(page, monkeypatch):

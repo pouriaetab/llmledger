@@ -264,6 +264,20 @@ def test_req_s55_a_codeburn_export_brings_one_shot_rates(tmp_path):
     assert t["one_shot"]["rates"][1]["rate"] == 0.5
 
 
+def test_cache_writes_without_a_price_are_named_too():
+    """Only cache reads were checked: a mix that wrote to the cache and read nothing said the cache was priced."""
+    s = shelf()
+    rows = [{"model": "claude-opus-5-5", "date": "2026-10-10", "input": 2000, "output": 800, "cache_write": 3000,
+             "session": f"s{i}"} for i in range(4)]
+    out = tools.price_my_usage(s, mix=rows, task="coding")
+    row = next(r for r in out["every_model"] if r["model"].endswith("claude-opus-5.5"))
+    assert row["cache_priced"] is False
+    assert "No cache write price listed: those tokens are counted at the input price." in row["note"]
+    both = tools.price_my_usage(s, mix=[dict(r, cache_read=500) for r in rows], task="coding")
+    row = next(r for r in both["every_model"] if r["model"].endswith("claude-opus-5.5"))
+    assert "No cache write price listed" in row["note"]         # its cache read price is listed, so not named
+
+
 def test_req_s55_a_model_listed_after_the_usage_is_priced_at_its_first_price(tmp_path):
     s = shelf({"gpt-6.1-sol": [["2026-09-10", "added", "", None, None, "", 0],
                                 ["2026-10-01", "price", "input_cost_per_token", 1e-06, 2e-06, "", 0]]})
