@@ -77,3 +77,12 @@ def test_req_s51_the_action_runs_the_script_with_its_inputs():
     for needle in ('using: "composite"', "action/watch.py", "inputs.models", "inputs.days", "inputs.watch",
                    "inputs.fail", "outputs:", "changed:", "report:"):
         assert needle in text
+
+
+def test_the_action_passes_its_inputs_through_the_environment():
+    """An input pasted into the command would run as shell: models: 'a"; echo hi; "' must stay one argument."""
+    text = (Path(__file__).parent.parent / "action.yml").read_text()
+    script = text[text.index("      run: |"):]
+    assert "${{" not in script
+    for name in ("WATCH_MODELS", "WATCH_DAYS", "WATCH_KINDS", "WATCH_FIELDS", "WATCH_FAIL"):
+        assert f"{name}: ${{{{ inputs." in text and f'"${name}"' in script

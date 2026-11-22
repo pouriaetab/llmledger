@@ -36,10 +36,17 @@ runs:
   steps:
     - id: watch
       shell: bash
+      # The inputs reach the script through the environment, never as text pasted into the command.
+      env:
+        WATCH_MODELS: ${{ inputs.models }}
+        WATCH_DAYS: ${{ inputs.days }}
+        WATCH_KINDS: ${{ inputs.watch }}
+        WATCH_FIELDS: ${{ inputs.fields }}
+        WATCH_FAIL: ${{ inputs.fail }}
       run: |
         set +e
-        python3 "${{ github.action_path }}/action/watch.py" --models "${{ inputs.models }}" --days "${{ inputs.days }}" --watch "${{ inputs.watch }}" --fields "${{ inputs.fields }}"
+        python3 "$GITHUB_ACTION_PATH/action/watch.py" --models "$WATCH_MODELS" --days "$WATCH_DAYS" --watch "$WATCH_KINDS" --fields "$WATCH_FIELDS"
         code=$?
         if [ "$code" = "2" ]; then exit 2; fi
-        if [ "$code" = "1" ] && [ "${{ inputs.fail }}" = "true" ]; then exit 1; fi
+        if [ "$code" = "1" ] && [ "$WATCH_FAIL" = "true" ]; then exit 1; fi
         exit 0

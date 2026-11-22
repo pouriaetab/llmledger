@@ -21,6 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # GitHub turns off a schedule after 60 days without a commit.
       # Turning it on again from here resets that clock, so the page keeps
@@ -67,6 +68,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -79,6 +81,7 @@ jobs:
     needs: [build, deploy]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Open or close the failed refresh issue
         run: |
